@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  dca-bot:
+    build: .
+    container_name: dca-bot
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data  # Changed to mount the data directory
+      - ./logs:/app/logs
+    environment:
+      - TZ=UTC
+      - PORT=8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - dca-network
+
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dca-bot-cli
+    command: python cli.py
+    volumes:
+      - ./data:/app/data  # Changed to mount the data directory
+      - ./config.json:/app/config.json
+    stdin_open: true
+    tty: true
+    depends_on:
+      - dca-bot
+    networks:
+      - dca-network
+
+networks:
+  dca-network:
+    driver: bridge
