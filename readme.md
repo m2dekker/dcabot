@@ -1,6 +1,6 @@
 # DCA Trading Bot
 
-A Dollar Cost Averaging (DCA) trading bot for cryptocurrency that automatically places base and safety orders based on a configured strategy..
+A Dollar Cost Averaging (DCA) trading bot for cryptocurrency that automatically places base and safety orders based on a configured strategy.
 
 ## Features
 
