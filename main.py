@@ -7,6 +7,7 @@ import os
 import uvicorn
 from dca_bot import execute_dca_trade
 from database import get_open_trades
+from pybit.unified_trading import HTTP
 
 # Configure logging
 logging.basicConfig(
@@ -75,6 +76,30 @@ async def get_trades():
     trades = get_open_trades()
     return {"trades": trades}
 
+# Initialize Bybit session
+api_key = os.environ.get("BYBIT_API_KEY")
+api_secret = os.environ.get("BYBIT_API_SECRET")
+
+if not api_key or not api_secret:
+    logger.error("API key or secret missing")
+    session = None
+else:
+    session = HTTP(testnet=True, api_key=api_key, api_secret=api_secret)
+
+@app.get("/test-connection")
+async def test_connection():
+    """Test connection to Bybit API."""
+    if not session:
+        return {"status": "error", "message": "API client not initialized"}
+    
+    try:
+        # Using the correct method for pybit
+        result = session.get_wallet_balance(accountType="UNIFIED")
+        return {"status": "success", "message": "Connected to Bybit API", "data": result}
+    except Exception as e:
+        logger.error(f"API connection test failed: {e}")
+        return {"status": "error", "message": str(e)}
+
 if __name__ == "__main__":
     # Get port from environment variable or use default
     port = int(os.environ.get("PORT", 8000))
@@ -84,4 +109,4 @@ if __name__ == "__main__":
     logger.info(f"Supported pairs: {SUPPORTED_PAIRS}")
     
     # Start the server
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port)    

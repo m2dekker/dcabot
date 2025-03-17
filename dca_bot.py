@@ -2,6 +2,8 @@ import sqlite3
 import json
 import logging
 import time
+import os
+from dotenv import load_dotenv
 from datetime import datetime
 from pybit.unified_trading import HTTP
 from database import get_next_deal_number, save_trade, get_current_price
@@ -34,17 +36,18 @@ except Exception as e:
         "take_profit_percent": 0.01
     }
 
+# Load environment variables from .env file
+load_dotenv()
+
 # Initialize API client - using testnet by default
-try:
-    # In a real implementation, you would load API keys from environment variables
-    # api_key = os.environ.get("BYBIT_API_KEY")
-    # api_secret = os.environ.get("BYBIT_API_SECRET")
-    # session = HTTP(testnet=True, api_key=api_key, api_secret=api_secret)
-    session = HTTP(testnet=True)
-    logger.info("API client initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize API client: {e}")
+api_key = os.environ.get("BYBIT_API_KEY")
+api_secret = os.environ.get("BYBIT_API_SECRET")
+
+if not api_key or not api_secret:
+    logger.error("API key or secret missing")
     session = None
+else:
+    session = HTTP(testnet=True, api_key=api_key, api_secret=api_secret)
 
 def execute_dca_trade(pair):
     """
@@ -76,7 +79,7 @@ def execute_dca_trade(pair):
         # Place base order (market order)
         try:
             order = session.place_order(
-                category="linear", 
+                category="spot", 
                 symbol=pair, 
                 side="Buy", 
                 order_type="Market", 
@@ -110,7 +113,7 @@ def execute_dca_trade(pair):
             # Place limit order
             try:
                 order = session.place_order(
-                    category="linear", 
+                    category="spot", 
                     symbol=pair, 
                     side="Buy", 
                     order_type="Limit", 

@@ -8,8 +8,11 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data  # Changed to mount the data directory
+      - ./data:/app/data
       - ./logs:/app/logs
+      - ./config.json:/app/config.json  # Mount the config file
+    env_file:
+      - .env  # Use environment variables from .env file
     environment:
       - TZ=UTC
       - PORT=8000
@@ -29,8 +32,10 @@ services:
     container_name: dca-bot-cli
     command: python cli.py
     volumes:
-      - ./data:/app/data  # Changed to mount the data directory
+      - ./data:/app/data
       - ./config.json:/app/config.json
+    env_file:
+      - .env  # Use environment variables from .env file
     stdin_open: true
     tty: true
     depends_on:
