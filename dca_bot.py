@@ -104,6 +104,12 @@ def execute_dca_trade(pair):
             # Calculate size for this safety order
             order_size = safety_order_size * (volume_scale ** i)
             
+            # Skip if the price is already at or below the calculated safety order price
+            current_market_price = get_current_price(pair)  # Get the latest price
+            if order_price >= current_market_price:
+                logger.warning(f"Safety order {i+1} price {order_price} is above or equal to current market price {current_market_price}. Skipping.")
+                continue
+
             safety_orders.append({
                 "price": order_price,
                 "size": order_size,
@@ -118,12 +124,16 @@ def execute_dca_trade(pair):
                     side="Buy", 
                     order_type="Limit", 
                     qty=order_size, 
-                    price=order_price
+                    price=order_price,
+                    timeInForce="PostOnly"  # This ensures the order is placed as a limit order only
                 )
-                logger.info(f"Safety order {i+1} placed at {order_price}: {json.dumps(order)}")
+                # Check the response to verify the order was placed as a limit order
+                if order.get("retCode") == 0:  # Success code for Bybit API
+                    logger.info(f"Safety order {i+1} placed at {order_price}: {json.dumps(order)}")
+                else:
+                    logger.error(f"Failed to place safety order {i+1}: {order}")
             except Exception as e:
                 logger.error(f"Failed to place safety order {i+1}: {e}")
-                # Continue with other orders even if one fails
         
         # Save trade details to database
         save_trade(pair, base_order_size, safety_orders, take_profit)

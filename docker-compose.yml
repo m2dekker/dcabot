@@ -11,11 +11,13 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./config.json:/app/config.json  # Mount the config file
+      - ./static:/app/static  # Mount the static directory
     env_file:
       - .env  # Use environment variables from .env file
     environment:
       - TZ=UTC
       - PORT=8000
+      - WEBHOOK_API_KEY=${WEBHOOK_API_KEY}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s

@@ -1,13 +1,23 @@
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, Header
 from pydantic import BaseModel
+from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+import os
+import uvicorn
+import secrets
 import json
 import logging
 from typing import Optional, List
-import os
-import uvicorn
+
 from dca_bot import execute_dca_trade
 from database import get_open_trades
 from pybit.unified_trading import HTTP
+
+# Add this near the top of your file
+API_KEY_NAME = "X-API-KEY"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 # Configure logging
 logging.basicConfig(
@@ -20,11 +30,39 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Generate a random API key if not provided
+API_KEY = os.environ.get("WEBHOOK_API_KEY") or secrets.token_hex(16)
+logger.info(f"API Key: {API_KEY}")  # Log during startup, remove in production
+
+# Add this function to validate the API key
+async def get_api_key(api_key: str = Header(None, alias=API_KEY_NAME)):
+    if api_key is None:
+        raise HTTPException(status_code=401, detail="API Key missing")
+    if api_key != API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+    return api_key
+
 app = FastAPI(
     title="DCA Trading Bot",
     description="A Dollar Cost Averaging trading bot for cryptocurrency",
     version="1.0.0"
 )
+
+# Add CORS middleware to allow requests from web browsers
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount the static files directory
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/ui")
+async def ui_redirect():
+    return RedirectResponse(url="/static/index.html")
 
 class TradeRequest(BaseModel):
     pair: str
@@ -35,7 +73,7 @@ class StatusResponse(BaseModel):
     supported_pairs: List[str]
 
 # List of supported trading pairs
-SUPPORTED_PAIRS = ["HBARUSDT", "HYPEUSDT"]
+SUPPORTED_PAIRS = ["ETHUSDT", "BNBUSDT"]
 
 @app.get("/", response_model=StatusResponse)
 async def root():
@@ -47,7 +85,7 @@ async def root():
     }
 
 @app.post("/webhook")
-async def webhook(request: Request):
+async def webhook(request: Request, api_key: str = Depends(get_api_key)):
     """Process trading webhook from external sources."""
     try:
         data = await request.json()
@@ -99,6 +137,17 @@ async def test_connection():
     except Exception as e:
         logger.error(f"API connection test failed: {e}")
         return {"status": "error", "message": str(e)}
+    
+@app.get("/config")
+async def get_config(api_key: str = Depends(get_api_key)):
+    """Get the current bot configuration."""
+    try:
+        with open("config.json") as f:
+            config = json.load(f)
+        return {"config": config}
+    except Exception as e:
+        logger.error(f"Error reading config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))    
 
 if __name__ == "__main__":
     # Get port from environment variable or use default
